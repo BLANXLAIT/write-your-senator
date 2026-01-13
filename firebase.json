@@ -5,11 +5,17 @@
     "rewrites": [
       {
         "source": "/api/lookupSenators",
-        "function": "lookupSenators"
+        "function": {
+          "functionId": "lookupSenators",
+          "region": "us-central1"
+        }
       },
       {
         "source": "/api/generateLetter",
-        "function": "generateLetter"
+        "function": {
+          "functionId": "generateLetter",
+          "region": "us-central1"
+        }
       }
     ]
   },

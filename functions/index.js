@@ -1,15 +1,46 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { VertexAI } from "@google-cloud/vertexai";
+import { senators, stateAbbreviations } from "./senators.js";
 
-const CIVIC_API_KEY = process.env.CIVIC_API_KEY;
-const PROJECT_ID = process.env.GCLOUD_PROJECT || "write-your-senator";
+const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "write-your-senator";
 
 // Initialize Vertex AI
 const vertexAI = new VertexAI({ project: PROJECT_ID, location: "us-central1" });
 const model = vertexAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 /**
- * Look up US Senators for a given address using Google Civic Information API
+ * Parse state from address string
+ */
+function parseStateFromAddress(address) {
+  // Try to find state abbreviation (2 capital letters followed by space and zip)
+  const abbrevMatch = address.match(/\b([A-Z]{2})\s+\d{5}/);
+  if (abbrevMatch && senators[abbrevMatch[1]]) {
+    return abbrevMatch[1];
+  }
+
+  // Try to find full state name
+  const lowerAddress = address.toLowerCase();
+  for (const [stateName, abbrev] of Object.entries(stateAbbreviations)) {
+    if (lowerAddress.includes(stateName)) {
+      return abbrev;
+    }
+  }
+
+  // Try to find state abbreviation anywhere (less precise)
+  const anyAbbrevMatch = address.match(/\b([A-Z]{2})\b/g);
+  if (anyAbbrevMatch) {
+    for (const match of anyAbbrevMatch) {
+      if (senators[match]) {
+        return match;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Look up US Senators for a given address
  */
 export const lookupSenators = onRequest({ cors: true }, async (req, res) => {
   const address = req.query.address;
@@ -20,48 +51,28 @@ export const lookupSenators = onRequest({ cors: true }, async (req, res) => {
   }
 
   try {
-    const url = new URL("https://www.googleapis.com/civicinfo/v2/representatives");
-    url.searchParams.set("key", CIVIC_API_KEY);
-    url.searchParams.set("address", address);
-    url.searchParams.set("levels", "country");
-    url.searchParams.set("roles", "legislatorUpperBody");
+    const state = parseStateFromAddress(address);
 
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.error) {
-      res.status(400).json({ error: data.error.message });
+    if (!state) {
+      res.status(400).json({
+        error: "Could not determine state from address. Please include state abbreviation (e.g., OH, CA)."
+      });
       return;
     }
 
-    // Extract senator information
-    const senators = [];
-    const offices = data.offices || [];
-    const officials = data.officials || [];
-
-    for (const office of offices) {
-      if (office.name.includes("Senator") || office.roles?.includes("legislatorUpperBody")) {
-        for (const index of office.officialIndices || []) {
-          const official = officials[index];
-          if (official) {
-            senators.push({
-              name: official.name,
-              party: official.party,
-              phones: official.phones || [],
-              urls: official.urls || [],
-              address: official.address?.[0] || null,
-            });
-          }
-        }
-      }
+    const stateSenators = senators[state];
+    if (!stateSenators) {
+      res.status(400).json({ error: `No senators found for state: ${state}` });
+      return;
     }
 
     res.json({
-      senators,
-      normalizedAddress: data.normalizedInput,
+      senators: stateSenators,
+      state: state,
+      normalizedAddress: address
     });
   } catch (error) {
-    console.error("Civic API error:", error);
+    console.error("Lookup error:", error);
     res.status(500).json({ error: "Failed to look up senators" });
   }
 });
@@ -101,7 +112,7 @@ User's information:
 
 Senator's information:
 - Name: ${senator.name}
-- Office: ${senator.office || "United States Senate, Washington, D.C. 20510"}
+- Office: ${senator.address || "United States Senate, Washington, D.C. 20510"}
 
 The constituent's concern (in their own words):
 ${concern}
@@ -112,32 +123,7 @@ Generate ONLY the letter body (starting with "Dear Senator..." and ending with "
     const result = await model.generateContent(prompt);
     const letterBody = result.response.candidates[0].content.parts[0].text;
 
-    // Build the complete letter HTML
-    const letterHtml = `
-<div class="letter">
-  <div class="address-block">
-    ${userName}<br>
-    ${userAddress.replace(/,/g, "<br>")}
-  </div>
-
-  <div class="date">${today}</div>
-
-  <div class="recipient">
-    The Honorable ${senator.name}<br>
-    United States Senate<br>
-    ${senator.office || "Washington, D.C. 20510"}
-  </div>
-
-  <div class="body">
-    ${letterBody.split("\n").filter(p => p.trim()).map(p => `<p>${p}</p>`).join("\n    ")}
-  </div>
-
-  <div class="signature-block">
-    ${userName}
-  </div>
-</div>`;
-
-    res.json({ letterHtml, letterBody });
+    res.json({ letterBody });
   } catch (error) {
     console.error("Gemini API error:", error);
     res.status(500).json({ error: "Failed to generate letter" });

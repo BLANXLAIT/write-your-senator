@@ -189,17 +189,13 @@
 
       try {
         for (const senator of state.senators) {
-          const senatorOffice = senator.address
-            ? formatAddress(senator.address)
-            : 'Washington, D.C. 20510';
-
           const res = await fetch('/api/generateLetter', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userName: state.userName,
               userAddress: state.userAddress,
-              senator: { ...senator, office: senatorOffice },
+              senator: senator,
               concern
             })
           });
@@ -261,10 +257,7 @@
         recipientDiv.appendChild(document.createElement('br'));
         recipientDiv.appendChild(document.createTextNode('United States Senate'));
         recipientDiv.appendChild(document.createElement('br'));
-        const office = letter.senator.address
-          ? formatAddress(letter.senator.address)
-          : 'Washington, D.C. 20510';
-        recipientDiv.appendChild(document.createTextNode(office));
+        recipientDiv.appendChild(document.createTextNode(letter.senator.address || 'Washington, D.C. 20510'));
         letterDiv.appendChild(recipientDiv);
 
         // Body

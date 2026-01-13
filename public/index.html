@@ -66,10 +66,11 @@
         <button id="backToStep2" class="btn btn-secondary">Back</button>
         <button id="printBtn" class="btn">Print Letters</button>
       </div>
+      <div id="lettersPreview"></div>
     </section>
   </div>
 
-  <!-- Letters for printing -->
+  <!-- Letters for printing (hidden, used by print only) -->
   <div id="lettersContainer"></div>
 
   <script>
@@ -214,9 +215,60 @@
       }
     });
 
+    function createLetterElement(letter, today) {
+      const letterDiv = document.createElement('div');
+      letterDiv.className = 'letter';
+
+      // Address block
+      const addrBlock = document.createElement('div');
+      addrBlock.className = 'address-block';
+      addrBlock.textContent = state.userName;
+      state.userAddress.split(', ').forEach(line => {
+        addrBlock.appendChild(document.createElement('br'));
+        addrBlock.appendChild(document.createTextNode(line));
+      });
+      letterDiv.appendChild(addrBlock);
+
+      // Date
+      const dateDiv = document.createElement('div');
+      dateDiv.className = 'date';
+      dateDiv.textContent = today;
+      letterDiv.appendChild(dateDiv);
+
+      // Recipient
+      const recipientDiv = document.createElement('div');
+      recipientDiv.className = 'recipient';
+      recipientDiv.textContent = `The Honorable ${letter.senator.name}`;
+      recipientDiv.appendChild(document.createElement('br'));
+      recipientDiv.appendChild(document.createTextNode('United States Senate'));
+      recipientDiv.appendChild(document.createElement('br'));
+      recipientDiv.appendChild(document.createTextNode(letter.senator.address || 'Washington, D.C. 20510'));
+      letterDiv.appendChild(recipientDiv);
+
+      // Body
+      const bodyDiv = document.createElement('div');
+      bodyDiv.className = 'body';
+      letter.body.split('\n').filter(p => p.trim()).forEach(para => {
+        const p = document.createElement('p');
+        p.textContent = para;
+        bodyDiv.appendChild(p);
+      });
+      letterDiv.appendChild(bodyDiv);
+
+      // Signature
+      const sigDiv = document.createElement('div');
+      sigDiv.className = 'signature-block';
+      sigDiv.textContent = state.userName;
+      letterDiv.appendChild(sigDiv);
+
+      return letterDiv;
+    }
+
     function displayLetters() {
-      const container = document.getElementById('lettersContainer');
-      container.replaceChildren(); // Clear safely
+      const preview = document.getElementById('lettersPreview');
+      const printContainer = document.getElementById('lettersContainer');
+      preview.replaceChildren();
+      printContainer.replaceChildren();
 
       const today = new Date().toLocaleDateString('en-US', {
         day: 'numeric',
@@ -225,58 +277,11 @@
       });
 
       state.letters.forEach((letter, index) => {
-        if (index > 0) {
-          const pageBreak = document.createElement('div');
-          pageBreak.className = 'page-break';
-          container.appendChild(pageBreak);
-        }
+        // Add to preview
+        preview.appendChild(createLetterElement(letter, today));
 
-        const letterDiv = document.createElement('div');
-        letterDiv.className = 'letter';
-
-        // Address block
-        const addrBlock = document.createElement('div');
-        addrBlock.className = 'address-block';
-        addrBlock.textContent = state.userName;
-        state.userAddress.split(', ').forEach(line => {
-          addrBlock.appendChild(document.createElement('br'));
-          addrBlock.appendChild(document.createTextNode(line));
-        });
-        letterDiv.appendChild(addrBlock);
-
-        // Date
-        const dateDiv = document.createElement('div');
-        dateDiv.className = 'date';
-        dateDiv.textContent = today;
-        letterDiv.appendChild(dateDiv);
-
-        // Recipient
-        const recipientDiv = document.createElement('div');
-        recipientDiv.className = 'recipient';
-        recipientDiv.textContent = `The Honorable ${letter.senator.name}`;
-        recipientDiv.appendChild(document.createElement('br'));
-        recipientDiv.appendChild(document.createTextNode('United States Senate'));
-        recipientDiv.appendChild(document.createElement('br'));
-        recipientDiv.appendChild(document.createTextNode(letter.senator.address || 'Washington, D.C. 20510'));
-        letterDiv.appendChild(recipientDiv);
-
-        // Body
-        const bodyDiv = document.createElement('div');
-        bodyDiv.className = 'body';
-        letter.body.split('\n').filter(p => p.trim()).forEach(para => {
-          const p = document.createElement('p');
-          p.textContent = para;
-          bodyDiv.appendChild(p);
-        });
-        letterDiv.appendChild(bodyDiv);
-
-        // Signature
-        const sigDiv = document.createElement('div');
-        sigDiv.className = 'signature-block';
-        sigDiv.textContent = state.userName;
-        letterDiv.appendChild(sigDiv);
-
-        container.appendChild(letterDiv);
+        // Add to print container
+        printContainer.appendChild(createLetterElement(letter, today));
       });
     }
 

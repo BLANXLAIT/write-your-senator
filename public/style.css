@@ -147,43 +147,53 @@ textarea {
   display: none;
 }
 
+#lettersPreview {
+  margin-top: 24px;
+}
+
 .letter {
   font-family: Georgia, Times, serif;
   font-size: 11pt;
   line-height: 1.4;
   max-width: 7in;
   margin: 0 auto;
-  padding: 0.75in;
+  padding: 0.5in;
+  background: white;
+  border: 1px solid #ddd;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .letter .address-block,
 .letter .date,
 .letter .recipient {
-  margin-bottom: 1em;
+  margin-bottom: 0.8em;
 }
 
 .letter .body p {
-  margin-bottom: 0.8em;
+  margin-bottom: 0.7em;
   text-align: justify;
 }
 
 .letter .signature-block {
-  margin-top: 2em;
+  margin-top: 1.5em;
 }
 
 .page-break {
-  page-break-after: always;
+  display: none;
 }
 
 /* Print styles */
 @media print {
-  .no-print {
+  .no-print,
+  #lettersPreview {
     display: none !important;
   }
 
   body {
     background: white;
     padding: 0;
+    margin: 0;
   }
 
   #lettersContainer {
@@ -192,9 +202,17 @@ textarea {
 
   .letter {
     padding: 0;
+    border: none;
+    box-shadow: none;
+    margin-bottom: 0;
+    page-break-after: always;
+  }
+
+  .letter:last-child {
+    page-break-after: auto;
   }
 
   @page {
-    margin: 0.75in;
+    margin: 1in 0.75in;
   }
 }

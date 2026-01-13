@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Write Your Senator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container no-print">
+    <h1>Write Your Senator</h1>
+    <p class="subtitle">Generate a professional letter to your US Senators in minutes</p>
+
+    <!-- Step 1: Your Information -->
+    <section id="step1" class="step active">
+      <h2>Step 1: Your Information</h2>
+      <form id="addressForm">
+        <div class="form-group">
+          <label for="userName">Your Full Name</label>
+          <input type="text" id="userName" required placeholder="Jane Smith">
+        </div>
+        <div class="form-group">
+          <label for="street">Street Address</label>
+          <input type="text" id="street" required placeholder="123 Main St">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="city">City</label>
+            <input type="text" id="city" required placeholder="Columbus">
+          </div>
+          <div class="form-group">
+            <label for="state">State</label>
+            <input type="text" id="state" required placeholder="OH" maxlength="2">
+          </div>
+          <div class="form-group">
+            <label for="zip">ZIP</label>
+            <input type="text" id="zip" required placeholder="43215" maxlength="10">
+          </div>
+        </div>
+        <button type="submit" class="btn">Find My Senators</button>
+      </form>
+      <div id="error1" class="error"></div>
+    </section>
+
+    <!-- Step 2: Select Senator & Describe Concern -->
+    <section id="step2" class="step">
+      <h2>Step 2: Your Concern</h2>
+      <div id="senatorsDisplay"></div>
+      <div class="form-group">
+        <label for="concern">What issue do you want to write about?</label>
+        <textarea id="concern" rows="6" placeholder="Describe your concern in your own words. For example: I'm worried about the recent executive actions affecting the independence of the Federal Reserve..."></textarea>
+      </div>
+      <div class="button-row">
+        <button id="backToStep1" class="btn btn-secondary">Back</button>
+        <button id="generateBtn" class="btn">Generate Letters</button>
+      </div>
+      <div id="error2" class="error"></div>
+      <div id="loading" class="loading">Generating your letters...</div>
+    </section>
+
+    <!-- Step 3: Preview & Print -->
+    <section id="step3" class="step">
+      <h2>Step 3: Review & Print</h2>
+      <p>Review your letters below, then print them. Remember to sign above your name before mailing!</p>
+      <div class="button-row">
+        <button id="backToStep2" class="btn btn-secondary">Back</button>
+        <button id="printBtn" class="btn">Print Letters</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Letters for printing -->
+  <div id="lettersContainer"></div>
+
+  <script>
+    const state = {
+      userName: '',
+      userAddress: '',
+      senators: [],
+      letters: []
+    };
+
+    // Step navigation
+    function showStep(n) {
+      document.querySelectorAll('.step').forEach((s, i) => {
+        s.classList.toggle('active', i === n - 1);
+      });
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Step 1: Look up senators
+    document.getElementById('addressForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorEl = document.getElementById('error1');
+      errorEl.textContent = '';
+
+      state.userName = document.getElementById('userName').value.trim();
+      const street = document.getElementById('street').value.trim();
+      const city = document.getElementById('city').value.trim();
+      const stateCode = document.getElementById('state').value.trim().toUpperCase();
+      const zip = document.getElementById('zip').value.trim();
+
+      state.userAddress = `${street}, ${city}, ${stateCode} ${zip}`;
+      const fullAddress = `${street}, ${city}, ${stateCode} ${zip}`;
+
+      try {
+        const res = await fetch(`/api/lookupSenators?address=${encodeURIComponent(fullAddress)}`);
+        const data = await res.json();
+
+        if (data.error) {
+          errorEl.textContent = data.error;
+          return;
+        }
+
+        if (!data.senators || data.senators.length === 0) {
+          errorEl.textContent = 'No senators found for this address. Please check and try again.';
+          return;
+        }
+
+        state.senators = data.senators;
+        displaySenators();
+        showStep(2);
+      } catch (err) {
+        errorEl.textContent = 'Failed to look up senators. Please try again.';
+      }
+    });
+
+    function formatAddress(addr) {
+      if (typeof addr === 'string') return addr;
+      return [addr.line1, addr.line2, addr.city, addr.state, addr.zip].filter(Boolean).join(', ');
+    }
+
+    function displaySenators() {
+      const container = document.getElementById('senatorsDisplay');
+      container.replaceChildren(); // Clear safely
+
+      const label = document.createElement('p');
+      const strong = document.createElement('strong');
+      strong.textContent = 'Your Senators:';
+      label.appendChild(strong);
+      container.appendChild(label);
+
+      for (const s of state.senators) {
+        const card = document.createElement('div');
+        card.className = 'senator-card';
+
+        const name = document.createElement('strong');
+        name.textContent = s.name;
+        card.appendChild(name);
+
+        if (s.party) {
+          const party = document.createElement('span');
+          party.className = 'party';
+          party.textContent = ` (${s.party})`;
+          card.appendChild(party);
+        }
+
+        if (s.address) {
+          card.appendChild(document.createElement('br'));
+          const addr = document.createElement('small');
+          addr.textContent = formatAddress(s.address);
+          card.appendChild(addr);
+        }
+
+        container.appendChild(card);
+      }
+    }
+
+    // Step 2: Generate letters
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+      const concern = document.getElementById('concern').value.trim();
+      const errorEl = document.getElementById('error2');
+      const loadingEl = document.getElementById('loading');
+      errorEl.textContent = '';
+
+      if (!concern) {
+        errorEl.textContent = 'Please describe your concern.';
+        return;
+      }
+
+      loadingEl.style.display = 'block';
+      state.letters = [];
+
+      try {
+        for (const senator of state.senators) {
+          const senatorOffice = senator.address
+            ? formatAddress(senator.address)
+            : 'Washington, D.C. 20510';
+
+          const res = await fetch('/api/generateLetter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userName: state.userName,
+              userAddress: state.userAddress,
+              senator: { ...senator, office: senatorOffice },
+              concern
+            })
+          });
+
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          state.letters.push({ senator, body: data.letterBody });
+        }
+
+        displayLetters();
+        showStep(3);
+      } catch (err) {
+        errorEl.textContent = 'Failed to generate letters. Please try again.';
+      } finally {
+        loadingEl.style.display = 'none';
+      }
+    });
+
+    function displayLetters() {
+      const container = document.getElementById('lettersContainer');
+      container.replaceChildren(); // Clear safely
+
+      const today = new Date().toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+
+      state.letters.forEach((letter, index) => {
+        if (index > 0) {
+          const pageBreak = document.createElement('div');
+          pageBreak.className = 'page-break';
+          container.appendChild(pageBreak);
+        }
+
+        const letterDiv = document.createElement('div');
+        letterDiv.className = 'letter';
+
+        // Address block
+        const addrBlock = document.createElement('div');
+        addrBlock.className = 'address-block';
+        addrBlock.textContent = state.userName;
+        state.userAddress.split(', ').forEach(line => {
+          addrBlock.appendChild(document.createElement('br'));
+          addrBlock.appendChild(document.createTextNode(line));
+        });
+        letterDiv.appendChild(addrBlock);
+
+        // Date
+        const dateDiv = document.createElement('div');
+        dateDiv.className = 'date';
+        dateDiv.textContent = today;
+        letterDiv.appendChild(dateDiv);
+
+        // Recipient
+        const recipientDiv = document.createElement('div');
+        recipientDiv.className = 'recipient';
+        recipientDiv.textContent = `The Honorable ${letter.senator.name}`;
+        recipientDiv.appendChild(document.createElement('br'));
+        recipientDiv.appendChild(document.createTextNode('United States Senate'));
+        recipientDiv.appendChild(document.createElement('br'));
+        const office = letter.senator.address
+          ? formatAddress(letter.senator.address)
+          : 'Washington, D.C. 20510';
+        recipientDiv.appendChild(document.createTextNode(office));
+        letterDiv.appendChild(recipientDiv);
+
+        // Body
+        const bodyDiv = document.createElement('div');
+        bodyDiv.className = 'body';
+        letter.body.split('\n').filter(p => p.trim()).forEach(para => {
+          const p = document.createElement('p');
+          p.textContent = para;
+          bodyDiv.appendChild(p);
+        });
+        letterDiv.appendChild(bodyDiv);
+
+        // Signature
+        const sigDiv = document.createElement('div');
+        sigDiv.className = 'signature-block';
+        sigDiv.textContent = state.userName;
+        letterDiv.appendChild(sigDiv);
+
+        container.appendChild(letterDiv);
+      });
+    }
+
+    // Navigation
+    document.getElementById('backToStep1').addEventListener('click', () => showStep(1));
+    document.getElementById('backToStep2').addEventListener('click', () => showStep(2));
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+  </script>
+</body>
+</html>

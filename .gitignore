@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Firebase
+.firebase/
+
+# Environment variables
+functions/.env
+functions/.env.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store

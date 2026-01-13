@@ -188,7 +188,7 @@ Senator's information:
 The constituent's concern (in their own words):
 ${concern}
 
-Generate ONLY the letter body (starting with "Dear Senator..." and ending with "Sincerely,"). Do not include the header addresses or signature block - those will be added separately. Do not use markdown formatting.`;
+CRITICAL: Output ONLY the letter text itself. Start directly with "Dear Senator" - no preamble, no explanation, no "I will help..." or "Here is the letter..." text. Just the letter content, nothing else.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: geminiApiKey.value() });
@@ -201,9 +201,25 @@ Generate ONLY the letter body (starting with "Dear Senator..." and ending with "
       }
     });
 
-    const letterBody = response.text;
+    let letterBody = response.text;
 
-    res.json({ letterBody });
+    // Clean up any preamble the model might have added
+    const dearMatch = letterBody.match(/Dear Senator/i);
+    if (dearMatch) {
+      letterBody = letterBody.substring(dearMatch.index);
+    }
+
+    // Remove any trailing content after "Sincerely," and the sign-off
+    const sincerelyMatch = letterBody.match(/Sincerely,?\s*$/i);
+    if (!sincerelyMatch) {
+      // If letter doesn't end with Sincerely, try to find it and trim after
+      const sincerelyIndex = letterBody.lastIndexOf('Sincerely');
+      if (sincerelyIndex > 0) {
+        letterBody = letterBody.substring(0, sincerelyIndex + 'Sincerely,'.length);
+      }
+    }
+
+    res.json({ letterBody: letterBody.trim() });
   } catch {
     // Privacy: No logging of errors or user data
     res.status(500).json({ error: "Failed to generate letter" });

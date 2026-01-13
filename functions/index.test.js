@@ -171,6 +171,28 @@ describe('Rate Limiting', () => {
 
 });
 
+describe('Letter Output Cleanup', () => {
+
+  it('should have CRITICAL instruction to prevent preamble', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const hasCritical = /CRITICAL.*Output ONLY|Start directly with.*Dear Senator/i.test(indexContent);
+    assert.equal(hasCritical, true, 'Prompt should have CRITICAL instruction to prevent preamble');
+  });
+
+  it('should strip content before Dear Senator', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const hasCleanup = /Dear Senator.*\.index|letterBody\.match\(.*Dear Senator/i.test(indexContent);
+    assert.equal(hasCleanup, true, 'Should have cleanup logic for content before Dear Senator');
+  });
+
+  it('should handle Sincerely ending', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const hasSincerelyCleanup = /Sincerely|sincerelyMatch|sincerelyIndex/i.test(indexContent);
+    assert.equal(hasSincerelyCleanup, true, 'Should have cleanup logic for Sincerely ending');
+  });
+
+});
+
 describe('Letter Length Constraints', () => {
 
   it('should specify word limit in prompt', () => {

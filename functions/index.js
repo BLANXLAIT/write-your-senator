@@ -1,10 +1,9 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { senators, stateAbbreviations } from "./senators.js";
 
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
-const serperApiKey = defineSecret("SERPER_API_KEY");
 
 /**
  * Parse state from address string
@@ -76,46 +75,9 @@ export const lookupSenators = onRequest({ cors: true }, async (req, res) => {
 });
 
 /**
- * Search for recent news about a topic using Serper API
+ * Generate a formal letter to a senator using Gemini with Google Search grounding
  */
-async function searchRecentNews(topic, apiKey) {
-  try {
-    const response = await fetch("https://google.serper.dev/news", {
-      method: "POST",
-      headers: {
-        "X-API-KEY": apiKey,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        q: topic,
-        num: 5
-      })
-    });
-
-    if (!response.ok) {
-      console.error("Serper API error:", response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    if (!data.news || data.news.length === 0) {
-      return null;
-    }
-
-    // Format news for the prompt
-    return data.news.map(item =>
-      `- ${item.title} (${item.source}, ${item.date}): ${item.snippet}`
-    ).join("\n");
-  } catch (error) {
-    console.error("News search error:", error);
-    return null;
-  }
-}
-
-/**
- * Generate a formal letter to a senator using Gemini
- */
-export const generateLetter = onRequest({ cors: true, secrets: [geminiApiKey, serperApiKey] }, async (req, res) => {
+export const generateLetter = onRequest({ cors: true, secrets: [geminiApiKey] }, async (req, res) => {
   if (req.method !== "POST") {
     res.status(405).json({ error: "POST required" });
     return;
@@ -128,20 +90,14 @@ export const generateLetter = onRequest({ cors: true, secrets: [geminiApiKey, se
     return;
   }
 
-  try {
-    // Search for recent news about the topic
-    let newsContext = "";
-    if (serperApiKey.value()) {
-      const recentNews = await searchRecentNews(concern, serperApiKey.value());
-      if (recentNews) {
-        newsContext = `\n\nRecent news context (use this to make the letter more timely and specific):\n${recentNews}`;
-      }
-    }
+  const prompt = `You are helping a citizen write a formal letter to their US Senator.
 
-    const prompt = `You are helping a citizen write a formal letter to their US Senator. Generate a professional, respectful letter that:
+First, search for recent news and developments related to the constituent's concern to ensure the letter references current events accurately.
+
+Then generate a professional, respectful letter that:
 - Is addressed properly to "The Honorable ${senator.name}"
 - Clearly states the constituent's concern
-- References recent events or news when relevant to show awareness of current developments
+- References specific recent events, legislation, or news when relevant
 - Makes specific asks of the Senator
 - Maintains a formal but personal tone
 - Is concise (one page maximum)
@@ -155,15 +111,22 @@ Senator's information:
 - Office: ${senator.address || "United States Senate, Washington, D.C. 20510"}
 
 The constituent's concern (in their own words):
-${concern}${newsContext}
+${concern}
 
 Generate ONLY the letter body (starting with "Dear Senator..." and ending with "Sincerely,"). Do not include the header addresses or signature block - those will be added separately. Do not use markdown formatting.`;
 
-    const genAI = new GoogleGenerativeAI(geminiApiKey.value());
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  try {
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey.value() });
 
-    const result = await model.generateContent(prompt);
-    const letterBody = result.response.text();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+
+    const letterBody = response.text;
 
     res.json({ letterBody });
   } catch (error) {

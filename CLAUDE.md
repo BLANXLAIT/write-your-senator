@@ -68,6 +68,13 @@ The WIF service account `github-ci@github-ci-blanxlait.iam.gserviceaccount.com` 
 
 The app is intentionally non-partisan. The prompt instructs the model to write professional letters without political bias - it works for any viewpoint. Placeholder examples cover topics across the political spectrum.
 
+## Rate Limiting
+
+Built-in protection against abuse:
+- **Per-IP limits**: 30 lookups/min, 5 letter generations/min
+- **Instance limits**: max 10 lookup instances, max 5 generate instances
+- In-memory rate limiter (resets on cold start, sufficient for basic protection)
+
 ## Privacy
 
 **No logging, no storage, no tracking.** See `PRIVACY.md` for full details.

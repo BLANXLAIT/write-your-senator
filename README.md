@@ -1,5 +1,7 @@
 # Write Your Senator
 
+[![Deploy to Firebase](https://github.com/BLANXLAIT/write-your-senator/actions/workflows/deploy.yml/badge.svg)](https://github.com/BLANXLAIT/write-your-senator/actions/workflows/deploy.yml)
+
 A simple, private tool to help citizens write formal letters to their US Senators.
 
 **Live:** https://write-your-senator.web.app

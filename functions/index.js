@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { senators, stateAbbreviations } from "./senators.js";
 
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
+const serperApiKey = defineSecret("SERPER_API_KEY");
 
 /**
  * Parse state from address string
@@ -75,9 +76,46 @@ export const lookupSenators = onRequest({ cors: true }, async (req, res) => {
 });
 
 /**
+ * Search for recent news about a topic using Serper API
+ */
+async function searchRecentNews(topic, apiKey) {
+  try {
+    const response = await fetch("https://google.serper.dev/news", {
+      method: "POST",
+      headers: {
+        "X-API-KEY": apiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        q: topic,
+        num: 5
+      })
+    });
+
+    if (!response.ok) {
+      console.error("Serper API error:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    if (!data.news || data.news.length === 0) {
+      return null;
+    }
+
+    // Format news for the prompt
+    return data.news.map(item =>
+      `- ${item.title} (${item.source}, ${item.date}): ${item.snippet}`
+    ).join("\n");
+  } catch (error) {
+    console.error("News search error:", error);
+    return null;
+  }
+}
+
+/**
  * Generate a formal letter to a senator using Gemini
  */
-export const generateLetter = onRequest({ cors: true, secrets: [geminiApiKey] }, async (req, res) => {
+export const generateLetter = onRequest({ cors: true, secrets: [geminiApiKey, serperApiKey] }, async (req, res) => {
   if (req.method !== "POST") {
     res.status(405).json({ error: "POST required" });
     return;
@@ -90,9 +128,20 @@ export const generateLetter = onRequest({ cors: true, secrets: [geminiApiKey] },
     return;
   }
 
-  const prompt = `You are helping a citizen write a formal letter to their US Senator. Generate a professional, respectful letter that:
+  try {
+    // Search for recent news about the topic
+    let newsContext = "";
+    if (serperApiKey.value()) {
+      const recentNews = await searchRecentNews(concern, serperApiKey.value());
+      if (recentNews) {
+        newsContext = `\n\nRecent news context (use this to make the letter more timely and specific):\n${recentNews}`;
+      }
+    }
+
+    const prompt = `You are helping a citizen write a formal letter to their US Senator. Generate a professional, respectful letter that:
 - Is addressed properly to "The Honorable ${senator.name}"
 - Clearly states the constituent's concern
+- References recent events or news when relevant to show awareness of current developments
 - Makes specific asks of the Senator
 - Maintains a formal but personal tone
 - Is concise (one page maximum)
@@ -106,11 +155,10 @@ Senator's information:
 - Office: ${senator.address || "United States Senate, Washington, D.C. 20510"}
 
 The constituent's concern (in their own words):
-${concern}
+${concern}${newsContext}
 
 Generate ONLY the letter body (starting with "Dear Senator..." and ending with "Sincerely,"). Do not include the header addresses or signature block - those will be added separately. Do not use markdown formatting.`;
 
-  try {
     const genAI = new GoogleGenerativeAI(geminiApiKey.value());
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 

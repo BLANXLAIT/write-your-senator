@@ -198,6 +198,7 @@ textarea {
 
   #lettersContainer {
     display: block !important;
+    padding-top: 0.5in;
   }
 
   .letter {
@@ -206,6 +207,7 @@ textarea {
     box-shadow: none;
     margin-bottom: 0;
     page-break-after: always;
+    padding-top: 0.25in;
   }
 
   .letter:last-child {
@@ -213,6 +215,6 @@ textarea {
   }
 
   @page {
-    margin: 1in 0.75in;
+    margin: 0.75in;
   }
 }

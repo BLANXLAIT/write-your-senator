@@ -1,12 +1,9 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { VertexAI } from "@google-cloud/vertexai";
+import { defineSecret } from "firebase-functions/params";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { senators, stateAbbreviations } from "./senators.js";
 
-const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "write-your-senator";
-
-// Initialize Vertex AI
-const vertexAI = new VertexAI({ project: PROJECT_ID, location: "us-central1" });
-const model = vertexAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
 /**
  * Parse state from address string
@@ -80,7 +77,7 @@ export const lookupSenators = onRequest({ cors: true }, async (req, res) => {
 /**
  * Generate a formal letter to a senator using Gemini
  */
-export const generateLetter = onRequest({ cors: true }, async (req, res) => {
+export const generateLetter = onRequest({ cors: true, secrets: [geminiApiKey] }, async (req, res) => {
   if (req.method !== "POST") {
     res.status(405).json({ error: "POST required" });
     return;
@@ -92,12 +89,6 @@ export const generateLetter = onRequest({ cors: true }, async (req, res) => {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
-
-  const today = new Date().toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 
   const prompt = `You are helping a citizen write a formal letter to their US Senator. Generate a professional, respectful letter that:
 - Is addressed properly to "The Honorable ${senator.name}"
@@ -120,8 +111,11 @@ ${concern}
 Generate ONLY the letter body (starting with "Dear Senator..." and ending with "Sincerely,"). Do not include the header addresses or signature block - those will be added separately. Do not use markdown formatting.`;
 
   try {
+    const genAI = new GoogleGenerativeAI(geminiApiKey.value());
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
     const result = await model.generateContent(prompt);
-    const letterBody = result.response.candidates[0].content.parts[0].text;
+    const letterBody = result.response.text();
 
     res.json({ letterBody });
   } catch (error) {

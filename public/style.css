@@ -183,6 +183,23 @@ textarea {
   display: none;
 }
 
+/* Footer */
+footer {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+footer a {
+  color: #666;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
 /* Print styles */
 @media print {
   .no-print,

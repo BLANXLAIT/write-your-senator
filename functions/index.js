@@ -68,8 +68,8 @@ export const lookupSenators = onRequest({ cors: true }, async (req, res) => {
       state: state,
       normalizedAddress: address
     });
-  } catch (error) {
-    console.error("Lookup error:", error);
+  } catch {
+    // Privacy: No logging of errors or user data
     res.status(500).json({ error: "Failed to look up senators" });
   }
 });
@@ -100,7 +100,7 @@ Then generate a professional, respectful letter that:
 - References specific recent events, legislation, or news when relevant
 - Makes specific asks of the Senator
 - Maintains a formal but personal tone
-- Is concise (one page maximum)
+- MUST fit on ONE page when printed (maximum 3-4 short paragraphs, ~250-300 words for the body)
 
 User's information:
 - Name: ${userName}
@@ -129,8 +129,8 @@ Generate ONLY the letter body (starting with "Dear Senator..." and ending with "
     const letterBody = response.text;
 
     res.json({ letterBody });
-  } catch (error) {
-    console.error("Gemini API error:", error);
+  } catch {
+    // Privacy: No logging of errors or user data
     res.status(500).json({ error: "Failed to generate letter" });
   }
 });

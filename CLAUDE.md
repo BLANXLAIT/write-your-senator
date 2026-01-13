@@ -20,6 +20,9 @@ firebase deploy --project write-your-senator
 # Install function dependencies
 cd functions && npm install
 
+# Run privacy and functionality tests
+cd functions && npm test
+
 # Set a secret (e.g., API key)
 firebase functions:secrets:set GEMINI_API_KEY --project write-your-senator
 ```
@@ -64,3 +67,15 @@ The WIF service account `github-ci@github-ci-blanxlait.iam.gserviceaccount.com` 
 ## Non-Partisan Design
 
 The app is intentionally non-partisan. The prompt instructs the model to write professional letters without political bias - it works for any viewpoint. Placeholder examples cover topics across the political spectrum.
+
+## Privacy
+
+**No logging, no storage, no tracking.** See `PRIVACY.md` for full details.
+
+Tests in `functions/index.test.js` verify:
+- No `console.log/error/warn/info` in code
+- No database imports (Firestore, Realtime DB)
+- No file writes or storage operations
+- Privacy comments in all catch blocks
+
+Tests run automatically in CI before every deployment.

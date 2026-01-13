@@ -5,6 +5,60 @@ import { senators, stateAbbreviations } from "./senators.js";
 
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
+// Rate limiting config
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = {
+  lookupSenators: 30,   // 30 lookups per minute per IP
+  generateLetter: 5     // 5 letter generations per minute per IP
+};
+
+// In-memory rate limit store (resets on cold start, which is fine for basic protection)
+const rateLimitStore = new Map();
+
+/**
+ * Simple IP-based rate limiter
+ * Returns true if request should be allowed, false if rate limited
+ */
+function checkRateLimit(ip, endpoint) {
+  const key = `${ip}:${endpoint}`;
+  const now = Date.now();
+  const limit = RATE_LIMIT_MAX_REQUESTS[endpoint] || 10;
+
+  // Clean up old entries periodically (every 100 checks)
+  if (Math.random() < 0.01) {
+    for (const [k, v] of rateLimitStore) {
+      if (now - v.windowStart > RATE_LIMIT_WINDOW_MS) {
+        rateLimitStore.delete(k);
+      }
+    }
+  }
+
+  const record = rateLimitStore.get(key);
+
+  if (!record || now - record.windowStart > RATE_LIMIT_WINDOW_MS) {
+    // New window
+    rateLimitStore.set(key, { windowStart: now, count: 1 });
+    return true;
+  }
+
+  if (record.count >= limit) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
+/**
+ * Get client IP from request
+ */
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+         req.headers['x-real-ip'] ||
+         req.ip ||
+         'unknown';
+}
+
 /**
  * Parse state from address string
  */
@@ -39,7 +93,17 @@ function parseStateFromAddress(address) {
 /**
  * Look up US Senators for a given address
  */
-export const lookupSenators = onRequest({ cors: true }, async (req, res) => {
+export const lookupSenators = onRequest({
+  cors: true,
+  maxInstances: 10
+}, async (req, res) => {
+  // Rate limiting
+  const clientIp = getClientIp(req);
+  if (!checkRateLimit(clientIp, 'lookupSenators')) {
+    res.status(429).json({ error: "Too many requests. Please try again in a minute." });
+    return;
+  }
+
   const address = req.query.address;
 
   if (!address) {
@@ -77,7 +141,18 @@ export const lookupSenators = onRequest({ cors: true }, async (req, res) => {
 /**
  * Generate a formal letter to a senator using Gemini with Google Search grounding
  */
-export const generateLetter = onRequest({ cors: true, secrets: [geminiApiKey] }, async (req, res) => {
+export const generateLetter = onRequest({
+  cors: true,
+  secrets: [geminiApiKey],
+  maxInstances: 5
+}, async (req, res) => {
+  // Rate limiting
+  const clientIp = getClientIp(req);
+  if (!checkRateLimit(clientIp, 'generateLetter')) {
+    res.status(429).json({ error: "Too many requests. Please try again in a minute." });
+    return;
+  }
+
   if (req.method !== "POST") {
     res.status(405).json({ error: "POST required" });
     return;

@@ -129,6 +129,48 @@ describe('Functionality Tests', () => {
 
 });
 
+describe('Rate Limiting', () => {
+
+  it('should have rate limit configuration', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const hasRateLimitConfig = /RATE_LIMIT_WINDOW_MS|RATE_LIMIT_MAX_REQUESTS/.test(indexContent);
+    assert.equal(hasRateLimitConfig, true, 'Should have rate limit configuration');
+  });
+
+  it('should have maxInstances set for lookupSenators', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const hasMaxInstances = /lookupSenators\s*=\s*onRequest\(\s*\{[^}]*maxInstances/.test(indexContent);
+    assert.equal(hasMaxInstances, true, 'lookupSenators should have maxInstances configured');
+  });
+
+  it('should have maxInstances set for generateLetter', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const hasMaxInstances = /generateLetter\s*=\s*onRequest\(\s*\{[^}]*maxInstances/.test(indexContent);
+    assert.equal(hasMaxInstances, true, 'generateLetter should have maxInstances configured');
+  });
+
+  it('should check rate limit in lookupSenators', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const lookupFn = indexContent.match(/export const lookupSenators[\s\S]*?^\}\);/m)?.[0] || '';
+    const hasRateCheck = /checkRateLimit/.test(lookupFn);
+    assert.equal(hasRateCheck, true, 'lookupSenators should call checkRateLimit');
+  });
+
+  it('should check rate limit in generateLetter', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const generateFn = indexContent.match(/export const generateLetter[\s\S]*?^\}\);/m)?.[0] || '';
+    const hasRateCheck = /checkRateLimit/.test(generateFn);
+    assert.equal(hasRateCheck, true, 'generateLetter should call checkRateLimit');
+  });
+
+  it('should return 429 when rate limited', () => {
+    const indexContent = readFileSync(join(__dirname, 'index.js'), 'utf-8');
+    const has429 = /status\(429\)/.test(indexContent);
+    assert.equal(has429, true, 'Should return 429 status when rate limited');
+  });
+
+});
+
 describe('Letter Length Constraints', () => {
 
   it('should specify word limit in prompt', () => {

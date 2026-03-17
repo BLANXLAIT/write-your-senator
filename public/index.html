@@ -79,6 +79,9 @@
   <!-- Letters for printing (hidden, used by print only) -->
   <div id="lettersContainer"></div>
 
+  <!-- Envelope addresses for printing -->
+  <div id="envelopeAddresses"></div>
+
   <script>
     const state = {
       userName: '',
@@ -288,6 +291,56 @@
 
         // Add to print container
         printContainer.appendChild(createLetterElement(letter, today));
+      });
+
+      // Generate envelope addresses
+      displayEnvelopeAddresses();
+    }
+
+    function displayEnvelopeAddresses() {
+      const container = document.getElementById('envelopeAddresses');
+      container.replaceChildren();
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'envelope-header';
+      header.textContent = 'ENVELOPE ADDRESSES';
+      container.appendChild(header);
+
+      // Create address pair for each senator
+      state.letters.forEach(letter => {
+        const pair = document.createElement('div');
+        pair.className = 'address-pair';
+
+        // TO address (larger)
+        const toBlock = document.createElement('div');
+        toBlock.className = 'to-address';
+        const toLabel = document.createElement('div');
+        toLabel.className = 'address-label';
+        toLabel.textContent = 'TO:';
+        toBlock.appendChild(toLabel);
+        toBlock.appendChild(document.createTextNode(`The Honorable ${letter.senator.name}`));
+        toBlock.appendChild(document.createElement('br'));
+        toBlock.appendChild(document.createTextNode('United States Senate'));
+        toBlock.appendChild(document.createElement('br'));
+        toBlock.appendChild(document.createTextNode(letter.senator.address || 'Washington, D.C. 20510'));
+        pair.appendChild(toBlock);
+
+        // FROM address (smaller)
+        const fromBlock = document.createElement('div');
+        fromBlock.className = 'from-address';
+        const fromLabel = document.createElement('div');
+        fromLabel.className = 'address-label';
+        fromLabel.textContent = 'FROM:';
+        fromBlock.appendChild(fromLabel);
+        fromBlock.appendChild(document.createTextNode(state.userName));
+        state.userAddress.split(', ').forEach(line => {
+          fromBlock.appendChild(document.createElement('br'));
+          fromBlock.appendChild(document.createTextNode(line));
+        });
+        pair.appendChild(fromBlock);
+
+        container.appendChild(pair);
       });
     }
 

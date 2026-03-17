@@ -143,7 +143,8 @@ textarea {
 }
 
 /* Letter styles */
-#lettersContainer {
+#lettersContainer,
+#envelopeAddresses {
   display: none;
 }
 
@@ -260,8 +261,49 @@ footer a:hover {
     padding-top: 0.25in;
   }
 
-  .letter:last-child {
-    page-break-after: auto;
+  /* Envelope addresses page */
+  #envelopeAddresses {
+    display: block !important;
+    font-family: Georgia, Times, serif;
+    padding-top: 0.5in;
+  }
+
+  .envelope-header {
+    font-size: 14pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 0.5in;
+    letter-spacing: 0.1em;
+  }
+
+  .address-pair {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.3in 0;
+    border-bottom: 1px dashed #999;
+    margin-bottom: 0.3in;
+  }
+
+  .address-pair:last-child {
+    border-bottom: none;
+  }
+
+  .address-label {
+    font-weight: bold;
+    margin-bottom: 0.1in;
+    font-size: 9pt;
+  }
+
+  .to-address {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  .from-address {
+    font-size: 9pt;
+    line-height: 1.4;
+    text-align: right;
   }
 
   @page {
